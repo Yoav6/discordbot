@@ -24,3 +24,13 @@ async def test_another(message, text):
 @client.register_command(rate_limit=(3, 10))
 async def test_rate(message, text):
     await message.channel.send('success')
+
+# private only command
+@client.register_command(allow_private=True, allow_public=False)
+async def test_private(message, text):
+    await message.channel.send('works')
+
+# private and public command
+@client.register_command(allow_private=True, allow_public=True)
+async def test_private_and_public(message, text):
+    await message.channel.send('works')
