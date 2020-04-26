@@ -19,3 +19,8 @@ async def test1(message, text):
 @client.register_command(name='test2')
 async def test_another(message, text):
     await message.channel.send('it also worked')
+
+# command with rate limit of 3 calls in 10 seconds
+@client.register_command(rate_limit=(3, 10))
+async def test_rate(message, text):
+    await message.channel.send('success')

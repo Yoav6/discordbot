@@ -2,6 +2,7 @@ import asyncio
 import discord
 import logging
 from . import settings
+from time import time
 from collections import defaultdict
 
 log = logging.getLogger(__name__)
@@ -10,12 +11,13 @@ class Client(discord.Client):
     def __init__(self, *args, **kwargs):
         self.custom_events = defaultdict(list)
         self.custom_commands = {}
+        self.custom_commands_rate_limits = {}
+        self.custom_commands_rates = {}
         super().__init__(*args, **kwargs)
 
     def dispatch(self, event, *args, **kwargs):
         super().dispatch(event, *args, **kwargs)
         method = 'on_' + event
-        log.debug('dispatch %s', method)
         for coro in self.custom_events[method]:
             self._schedule_event(coro, method, *args, **kwargs)
 
@@ -28,12 +30,17 @@ class Client(discord.Client):
             return coro
         return decorator
 
-    def register_command(self, name=None):
+    def register_command(self, name=None, rate_limit=None):
+        ''' rate_limit = (3, 60) - allow 3 calls every 60 seconds '''
         def decorator(coro):
             if not asyncio.iscoroutinefunction(coro):
                 raise TypeError('custom command registered must be a coroutine function')
-            self.custom_commands[name or coro.__name__] = coro
-            log.debug('%s has successfully been registered as a custom command', name or coro.__name__)
+            command = name or coro.__name__
+            self.custom_commands[command] = coro
+            if rate_limit:
+                self.custom_commands_rate_limits[command] = rate_limit
+                self.custom_commands_rates[command] = []
+            log.debug('%s has successfully been registered as a custom command', command)
             return coro
         return decorator
 
@@ -54,6 +61,13 @@ async def on_message(message):
             command, arg = (parts[0], '')
         command = command[len(settings.COMMAND_PREFIX):]
         if command in client.custom_commands:
+            if command in client.custom_commands_rate_limits:
+                num_calls, seconds = client.custom_commands_rate_limits[command]
+                client.custom_commands_rates[command] = [x for x in client.custom_commands_rates[command] if x > time() - seconds]
+                if len(client.custom_commands_rates[command]) >= num_calls:
+                    log.warning('Rate limit reached for command %s', command)
+                    return
+                client.custom_commands_rates[command].append(time())
             try:
                 await client.custom_commands[command](message, arg)
             except asyncio.CancelledError:
