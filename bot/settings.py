@@ -1,7 +1,9 @@
 CLIENT_PARAMS = {}
 TOKEN = 'YOUR TOKEN HERE'
+ADMINS = [55555555, 6666666] # user IDs with admin privileges, ID can be retrieved by sending the bot the command "what_is_my_id"
 COMMAND_PREFIX = '$'
 MODULES = [
+    'manage',
     'example',
 ]
 
