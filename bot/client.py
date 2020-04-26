@@ -29,7 +29,7 @@ class Client(discord.Client):
             return coro
         return decorator
 
-    def register_command(self, name=None, rate_limit=None, allow_private=False, allow_public=True):
+    def register_command(self, name=None, rate_limit=None, allow_private=False, allow_public=True, admin=False):
         ''' rate_limit = (3, 60) - allow 3 calls every 60 seconds '''
         def decorator(coro):
             if not asyncio.iscoroutinefunction(coro):
@@ -40,6 +40,7 @@ class Client(discord.Client):
                 'rate_limit': rate_limit,
                 'allow_private': allow_private,
                 'allow_public': allow_public,
+                'admin': admin,
             }
             if rate_limit:
                 self.custom_commands_rates[command] = []
@@ -69,16 +70,18 @@ async def on_message(message):
                 return
             if message.channel.type.name != 'private' and not command['allow_public']:
                 return
+            if command['admin'] and message.author.id not in settings.ADMINS:
+                return
             if command['rate_limit']:
                 num_calls, seconds = command['rate_limit']
-                client.custom_commands_rates[command] = [x for x in client.custom_commands_rates[command] if x > time() - seconds]
-                if len(client.custom_commands_rates[command]) >= num_calls:
-                    log.warning('Rate limit reached for command %s', command)
+                client.custom_commands_rates[command_name] = [x for x in client.custom_commands_rates[command_name] if x > time() - seconds]
+                if len(client.custom_commands_rates[command_name]) >= num_calls:
+                    log.warning('Rate limit reached for command %s', command_name)
                     return
-                client.custom_commands_rates[command].append(time())
+                client.custom_commands_rates[command_name].append(time())
             try:
                 await command['coro'](message, arg)
             except asyncio.CancelledError:
                 pass
             except Exception:
-                log.exception(f'Ignoring exception in custom command {f}')
+                log.exception(f'Ignoring exception in custom command {command_name}')
